@@ -1,20 +1,44 @@
 from customers.models import Customer
 from django.http import JsonResponse, Http404
 from customers.serializers import customerSerializer
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
+
+@api_view(['GET', 'POST'])
 def customers(request):
-   data = Customer.objects.all()
-   serializer = customerSerializer(data, many=True)
-   # Modifier la structure des données ici
-   response_data = {"customers": serializer.data}
-   return JsonResponse(response_data)
+   if request.method == 'GET':
+    data = Customer.objects.all()
+    serializer = customerSerializer(data, many=True)
+    # Modifier la structure des données ici
+    response_data = {"customers": serializer.data}
+    return Response(response_data)
+   elif request.method == 'POST':
+       serializer = customerSerializer(data = request.data)
+       if serializer.is_valid():
+           serializer.save()
+           return Response({'customer' : serializer.data},status=status.HTTP_201_CREATED)
+       return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET', 'POST', 'DELETE'])  # Changed POST to PUT (more logical for updates)
 def customer(request, id):
     try:
         data = Customer.objects.get(pk=id)
     except Customer.DoesNotExist:
-       raise Http404('Customer does not exist')
-    serializer = customerSerializer(data)
-   # Modifier la structure des données ici
-    response_data = {"customer": serializer.data}
-    return JsonResponse(response_data)
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = customerSerializer(data)
+        return Response({"customer": serializer.data})
+
+    elif request.method == 'DELETE':
+        data.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    elif request.method == 'POST':
+        serializer = customerSerializer(data, data = request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'customer' : serializer.data})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
